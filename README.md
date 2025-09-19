@@ -9,26 +9,42 @@ A simple emulator for chip 8 programs
 
 | Intructions             | Hex                                                               | 
 | - | - | 
-| CLS | 00E0 | | SHL Vx {, Vy} | 8xyE |
-| RET | 00EE | | SNE Vx, Vy | 9xy0 |
-| SYS addr | 0nnn | | LD I, addr | Annn |
-| JP addr | 1nnn | | JP V0, addr | Bnnn |
-| CALL addr | 2nnn | | RND Vx, byte | Cxkk |
-| SE Vx, byte | 3xkk | | DRW Vx, Vy, nibble | Dxyn |
-| SNE Vx, byte | 4xkk | | SKP Vx | Ex9E |
-| SE Vx, Vy | 5xy0 | | SKNP Vx | ExA1 |
-| LD Vx, byte | 6xkk | | LD Vx, DT | Fx07 |
-| ADD Vx, byte | 7xkk | | LD Vx, K | Fx0A |
-| LD Vx, Vy | 8xy0 | | LD DT, Vx | Fx15 |
-| OR Vx, Vy | 8xy1 | | LD ST, Vx | Fx18 |
-| AND Vx, Vy | 8xy2 | | ADD I, Vx | Fx1E |
-| XOR Vx, Vy | 8xy3 | | LD F, Vx | Fx29 |
-| ADD Vx, Vy | 8xy4 | | LD B, Vx | Fx33 |
-| SUB Vx, Vy | 8xy5 | | LD [I], Vx | Fx55 |
-| SHR Vx {, Vy} | 8xy6 | | LD Vx, [I] | Fx65 |
+| CLS | 00E0 | 
+| RET | 00EE | 
+| SYS addr | 0nnn | 
+| JP addr | 1nnn | 
+| CALL addr | 2nnn | 
+| SE Vx, byte | 3xkk | 
+| SNE Vx, byte | 4xkk | 
+| SE Vx, Vy | 5xy0 | 
+| LD Vx, byte | 6xkk | 
+| ADD Vx, byte | 7xkk | 
+| LD Vx, Vy | 8xy0 | 
+| OR Vx, Vy | 8xy1 | 
+| AND Vx, Vy | 8xy2 | 
+| XOR Vx, Vy | 8xy3 | 
+| ADD Vx, Vy | 8xy4 | 
+| SUB Vx, Vy | 8xy5 | 
+| SHR Vx {, Vy} | 8xy6 | 
 | SUBN Vx, Vy | 8xy7 | 
+| SHL Vx {, Vy} | 8xyE |
+| SNE Vx, Vy | 9xy0 |
+| LD I, addr | Annn |
+| JP V0, addr | Bnnn |
+| RND Vx, byte | Cxkk |
+| DRW Vx, Vy, nibble | Dxyn |
+| SKP Vx | Ex9E |
+| SKNP Vx | ExA1 |
+| LD Vx, DT | Fx07 |
+| LD Vx, K | Fx0A |
+| LD DT, Vx | Fx15 |
+| LD ST, Vx | Fx18 |
+| LD F, Vx | Fx29 |
+| LD B, Vx | Fx33 |
+| LD [I], Vx | Fx55 |
+| LD Vx, [I] | Fx65 |
 
-
+ 
 ## Deployment on your machine
 
 To use it download the repo
