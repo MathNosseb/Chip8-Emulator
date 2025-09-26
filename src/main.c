@@ -20,6 +20,7 @@ struct Chip8 {
     uint8_t gfx[64*32];
     size_t size;
     uint_fast8_t drawflag;
+    uint8_t speed;
     
 };
 
@@ -96,31 +97,6 @@ void update_timer(){
     if (chip8.sound > 0) chip8.sound--;
 }
 
-void handle_keyboard(SDL_Event event) {
-    int pressed = (event.type == SDL_KEYDOWN);
-
-    switch (event.key.keysym.scancode) {
-        case SDL_SCANCODE_1: chip8.keys[0x1] = pressed; break;
-        case SDL_SCANCODE_2: chip8.keys[0x2] = pressed; break;
-        case SDL_SCANCODE_3: chip8.keys[0x3] = pressed; break;
-        case SDL_SCANCODE_4: chip8.keys[0xC] = pressed; break;
-
-        case SDL_SCANCODE_Q: chip8.keys[0x4] = pressed; break;
-        case SDL_SCANCODE_W: chip8.keys[0x5] = pressed; break;
-        case SDL_SCANCODE_E: chip8.keys[0x6] = pressed; break;
-        case SDL_SCANCODE_R: chip8.keys[0xD] = pressed; break;
-
-        case SDL_SCANCODE_A: chip8.keys[0x7] = pressed; break;
-        case SDL_SCANCODE_S: chip8.keys[0x8] = pressed; break;
-        case SDL_SCANCODE_D: chip8.keys[0x9] = pressed; break;
-        case SDL_SCANCODE_F: chip8.keys[0xE] = pressed; break;
-
-        case SDL_SCANCODE_Z: chip8.keys[0xA] = pressed; break;
-        case SDL_SCANCODE_X: chip8.keys[0x0] = pressed; break;
-        case SDL_SCANCODE_C: chip8.keys[0xB] = pressed; break;
-        case SDL_SCANCODE_V: chip8.keys[0xF] = pressed; break;
-    }
-}
 
 void draw()
 {
@@ -161,176 +137,191 @@ void Instruction(uint8_t byte1, uint8_t byte2){
     uint8_t nibble2 = byte1 & 0x0F;        // deuxième nibble (bits 8-11)
     uint8_t nibble3 = (byte2 & 0xF0) >> 4; // troisième nibble (bits 4-7)
     uint8_t nibble4 = byte2 & 0x0F;        // quatrième nibble (bits 0-3
+    uint16_t adr = (nibble2<<8) | byte2;
+    uint32_t i, key_pressed;
     switch (nibble1)
     {
-    case 0x6:
-        uint8_t lastNibble = byte1 & 0x0F;
-        chip8.V[lastNibble] = byte2;
-        printf("\033[32mLD V[%X], %02X\033[0m", lastNibble, byte2);
-        break;
-    case 0xA:
-        uint16_t adr = (nibble2<<8) | byte2;
-        chip8.I = adr;
-        printf("\033[32mLD I, %03X\033[0m", adr);
-        break;
-    case 0x2:
-        uint16_t addr = (nibble2<<8)|byte2;
-        chip8.SP++;
-        chip8.stack[chip8.SP] = chip8.PC;
-        chip8.PC = addr;
-        printf("\033[32mCALL %X\033[0m",addr);
-        break;
+    
+
+
     case 0x0:
+    
         if (byte1 == 0x00 && byte2 == 0xEE){
-            uint16_t addr = chip8.stack[chip8.SP];
-            chip8.PC = addr;
+            //00EE
+            uint16_t addresse = chip8.stack[chip8.SP];
+            chip8.PC = addresse;
             chip8.SP--;
-            printf("\033[32mRET %X\033[0m",addr);
+            printf("\033[32mRET %X\033[0m",addresse);
+            break;
         }if (byte1 == 0x00 && byte2 == 0xE0){
             //clear display
+            //00E0
             for (int pixelCounter = 0; pixelCounter < (64*32); pixelCounter++){
                 chip8.gfx[pixelCounter] = 0;
             }
             chip8.drawflag = 1;
             printf("\033[32mCLS\033[0m");
+            break;
+        }else{
+            //0nnn
+            //pas implémenté car jamais utilisé dans les logiciels chip8
+            printf("\033[31mNOT DEFINED\033[0m");
         }
         break;
     case 0x1:
         //jump to nnn
+        //1nnn
         chip8.PC = (nibble2<<8)|byte2;
         printf("\033[32mJP %X\033[0m",(nibble2<<8)|byte2);           
         break;
+    case 0x2:
+        //2nnn
+        chip8.SP++;
+        chip8.stack[chip8.SP] = chip8.PC;
+        chip8.PC = adr;
+        printf("\033[32mCALL %X\033[0m",adr);
+        break;
     case 0x3:
+        //3xkk
         if (chip8.V[nibble2] == byte2){
             chip8.PC += 2;
             
         }
         printf("\033[32mSE V[%X] %02X\033[0m", nibble2, byte2); 
         break;
-    case 0xF:
-        if (byte2 == 0x07){
-            chip8.V[nibble2] = chip8.delay;
-            printf("\033[32mLD V[%X] %X\033[0m",nibble2,chip8.delay); 
-        }
-        if (byte2 == 0x15){
-            chip8.delay = chip8.V[nibble2];
-            printf("\033[32mLD %X V[%X]\033[0m",chip8.delay,nibble2); 
-        }
-        if (byte2 == 0x18){
-            chip8.sound = chip8.V[nibble2];
-            printf("\033[32mLD ST V[%X]\033[0m",nibble2); 
-        }
-        if (byte2 == 0x33){
-            uint8_t value = chip8.V[nibble2];
-            chip8.memory[chip8.I] = value / 100;
-            chip8.memory[chip8.I + 1] = (value / 10) % 10;
-            chip8.memory[chip8.I + 2] = value % 10;
-            printf("\033[32mLD BCD V[%X]\033[0m",nibble2);
-        }
-        if (byte2 == 0x65){
-            for (int i = 0; i <= nibble2; i++){
-                chip8.V[i] = chip8.memory[chip8.I + i];
-            }
-            printf("\033[32mLD V[0] to V[%X], [I]\033[0m",nibble2);
-        }if (byte2 == 0x29){
-            chip8.I = 0x50 + chip8.V[nibble2] * 5; // chaque sprite fait 5 octets
-            printf("\033[32mLD F, V[%X]\033[0m",nibble2);
-        }
-        break;
+    
     case 0x4:
+        //4xkk
         if (chip8.V[nibble2] != byte2){
             chip8.PC += 2;
         }
         printf("\033[32mSNE V[%X] %X\033[0m",nibble2,byte2);
+        break;
+    case 0x5:
+        //5xy0
+        if (chip8.V[nibble2] == chip8.V[nibble3]){
+            chip8.PC += 2;
+        }
+        printf("\033[32mSE V[%X] V[%X]\033[0m",nibble2,nibble3);
+        break;
+    case 0x6:
+        //6xkk
+        uint8_t lastNibble = byte1 & 0x0F;
+        chip8.V[lastNibble] = byte2;
+        printf("\033[32mLD V[%X], %02X\033[0m", lastNibble, byte2);
+        break;
     case 0x7:   
+        //7xkk
         chip8.V[nibble2] = chip8.V[nibble2] + byte2;
         printf("\033[32mADD V[%X] %X\033[0m",nibble2,byte2);
+        break;
     case 0x8:
         if (nibble4 == 0x0){
+            //8xy0
             chip8.V[nibble2] = chip8.V[nibble3];
             printf("\033[32mLD V[%X] V[%X]\033[0m",nibble2,nibble3);
         }
         if (nibble4 == 0x1){
+            //8xy1
             chip8.V[nibble2] |= chip8.V[nibble3]; // or mais en raccourcis
             printf("\033[32mOR V[%X] V[%X]\033[0m",nibble2,nibble3);
         }
         if (nibble4 == 0x2){
+            //8xy2
             chip8.V[nibble2] &= chip8.V[nibble3]; // et mais en raccourcis
             printf("\033[32mAND V[%X] V[%X]\033[0m",nibble2,nibble3);
         }
         if (nibble4 == 0x3){
+            //8xy3
             chip8.V[nibble2] ^= chip8.V[nibble3]; //Xor mais en raccourcis
             printf("\033[32mXOR V[%X] V[%X]\033[0m",nibble2,nibble3);
         }
         if (nibble4 == 0x4){
-            uint16_t sum = chip8.V[nibble2] + chip8.V[nibble3];
-            if (sum > 0xFF){
-                chip8.V[15] = 1;
-            }else{
-                chip8.V[15] = 0;
-            }
-                
-            chip8.V[nibble2] = sum & 0xFF; //AND mais avec une retenu
+            //8xy4
+            int i;
+            i = (int)(chip8.V[nibble2]) + (int)(chip8.V[nibble3]);
+            if (i > 255)
+                chip8.V[0xF] = 1;
+            else
+                chip8.V[0xF] = 0;
+            chip8.V[nibble2] = i & 0xFF;
             
             
             printf("\033[32mADD V[%X] V[%X]\033[0m",nibble2,nibble3);
         }
         if (nibble4 == 0x5){
-            if (chip8.V[nibble2]>chip8.V[nibble3]){
-                chip8.V[15] = 1;
-            }else{
-                chip8.V[15] = 0;
-            }
-            chip8.V[nibble2] -= chip8.V[nibble3];
+            //8xy5
+            if (chip8.V[nibble2]> chip8.V[nibble3] ) chip8.V[0xF] = 1;
+			else chip8.V[0xF] = 0;
+			chip8.V[nibble2] -= chip8.V[nibble3];
+
             printf("\033[32mSUB V[%X] V[%X]\033[0m",nibble2,nibble3);
         }
         if (nibble4 == 0x6){
-            uint16_t opcode = (byte1 << 8) | byte2;
-            uint8_t x = (opcode & 0x0F00) >> 8;
-            chip8.V[0xF] = chip8.V[nibble2] & 0x1;
-            chip8.V[nibble2] >>= 1; //decale les bits vers la droite
+            //8xy6
+            chip8.V[0xF] = chip8.V[nibble2] &1;
+			chip8.V[nibble2] >>= 1;
             printf("\033[32mSHR V[%X] {, V[%X]}\033[0m",nibble2,nibble3);
         }
         if (nibble4 == 0x7){
-            if (chip8.V[nibble2]<chip8.V[nibble3]){
-                chip8.V[0xF] = 1;
-            }else{
-                chip8.V[0xF] = 0;
-            }
-            chip8.V[nibble3] -= chip8.V[nibble2];
+            //8xy7
+            if(chip8.V[nibble3] > chip8.V[nibble2]) chip8.V[0xF] = 1;
+			else chip8.V[0xF] = 0;
+			chip8.V[nibble2] = chip8.V[nibble3] - chip8.V[nibble2];
             printf("\033[32mSUBN V[%X] V[%X]\033[0m",nibble2,nibble3);
         }
         if (nibble4 == 0xE){
-            uint16_t opcode = (byte1 << 8) | byte2;
-            uint8_t x = (opcode & 0x0F00) >> 8;
-
-            chip8.V[0xF] = (chip8.V[x] & 0x80) >> 7; // récupérer MSB dans VF
-            chip8.V[x] <<= 1;                          // décalage à gauche
+            //8xyE
+            chip8.V[0xF] = chip8.V[nibble2] >> 7;
+			chip8.V[nibble2] <<= 1;
             printf("\033[32mSHL V[%X] {, V[%X]}\033[0m",nibble2,nibble3);
         }
             
         break;
+    case 0x9:
+        //9xy0
+        if (nibble4 == 0x0){
+            if (chip8.V[nibble2] != chip8.V[nibble3]){
+                chip8.PC += 2;
+            }
+        }
+        printf("\033[32mSNE V[%X], V[%X]\033[0m", nibble2, nibble3);
+        break;
+    case 0xA: 
+        //Annn
+        chip8.I = adr;
+        printf("\033[32mLD I, %03X\033[0m", adr);
+        break;
+    case 0xB:
+        //Bnnn
+        chip8.PC = (adr) + chip8.V[0x0];
+        break;
     case 0xC:
+        //Cxkk
         uint8_t randomValue = rand() % 256; // Valeur aléatoire entre 0 et 255
         chip8.V[nibble2] = randomValue & byte2;
         printf("\033[32mRND V[%X], %02X\033[0m", nibble2, byte2);
         break;
     case 0xD:
-    
-        chip8.V[0xF] = 0; // VF = 0
-        for (int row = 0; row < nibble4; row++) {
-            uint8_t spriteByte = chip8.memory[chip8.I + row];
-            for (int col = 0; col < 8; col++) {
-                uint8_t spritePixel = (spriteByte >> (7 - col)) & 1;
-                int x = (chip8.V[nibble2] + col) % 64;
-                int y = (chip8.V[nibble3] + row) % 32;
+        //Dxyn
+        uint16_t size_x = chip8.V[nibble2];
+        uint16_t y = chip8.V[nibble3];
+        uint16_t height = nibble4;
+        uint8_t pixel;
 
-                if (spritePixel) {
-                    if (chip8.gfx[y * 64 + x] == 1)
-                        chip8.V[0xF] = 1; // collision
-                    chip8.gfx[y * 64 + x] ^= 1; // XOR
+        chip8.V[0xF] = 0;
+        for (int yline = 0; yline < height; yline++) {
+            pixel = chip8.memory[chip8.I + yline];
+            for(int xline = 0; xline < 8; xline++) {
+                if((pixel & (0x80 >> xline)) != 0) {
+                    if(chip8.gfx[(size_x + xline + ((y + yline) * 64))] == 1){
+                        chip8.V[0xF] = 1;                                   
+                    }
+                    chip8.gfx[size_x + xline + ((y + yline) * 64)] ^= 1;
                 }
+
             }
+
         }
         chip8.drawflag = 1;
         printf("\033[32mDRW V[%X] v[%X], %X\033[0m",nibble2,nibble3,nibble4);
@@ -340,13 +331,83 @@ void Instruction(uint8_t byte1, uint8_t byte2){
         uint8_t x = (opcode & 0x0F00) >> 8;
         switch (opcode & 0x00FF) {
             case 0x9E: // SKP Vx
+                //Ex9E
                 if (chip8.keys[ chip8.V[x] ]) chip8.PC += 2;
                 printf("\033[32mSKP V[%X] %X\033[0m",x,chip8.keys[chip8.V[x]]);
                 break;
             case 0xA1: // SKNP Vx
+                //ExA1
                 if (!chip8.keys[ chip8.V[x] ]) chip8.PC += 2;
                 printf("\033[32mSKNP V[%X] %X\033[0m",x,chip8.keys[chip8.V[x]]);
                 break;
+        }
+        break;
+    
+    case 0xF:
+        if (byte2 == 0x07){
+            //Fx07
+            chip8.V[nibble2] = chip8.delay;
+            printf("\033[32mLD V[%X] %X\033[0m",nibble2,chip8.delay); 
+        }
+        if (byte2 == 0x0A){
+            //Fx0A
+            key_pressed = 0;
+            for(i=0;i<16;i++)
+            {
+                if (chip8.keys[i])
+                {
+                    key_pressed = 1;
+                    chip8.V[nibble2] = i;
+                }
+            }
+
+            if (key_pressed == 0)
+            {
+                chip8.PC -= 2;
+            }
+            printf("\033[32mLD V[%X] %X\033[0m",chip8.V[nibble2],key_pressed); 
+        }
+        if (byte2 == 0x15){
+            //Fx15
+            chip8.delay = chip8.V[nibble2];
+            printf("\033[32mLD %X V[%X]\033[0m",chip8.delay,nibble2); 
+        }
+        if (byte2 == 0x18){
+            //Fx18
+            chip8.sound = chip8.V[nibble2];
+            printf("\033[32mLD ST V[%X]\033[0m",nibble2); 
+        }
+        if (byte2 == 0x1E){
+            //Fx1E
+            chip8.I += chip8.V[nibble2];
+            printf("\033[32mADD %X V[%X]\033[0m",chip8.I, nibble2); 
+        }
+        if (byte2 == 0x29){
+            //Fx29
+            chip8.I = chip8.V[nibble2] * 5;
+            printf("\033[32mLD F V[%X]\033[0m",nibble2); 
+        }
+        if (byte2 == 0x33){
+            //Fx33
+            uint8_t value = chip8.V[nibble2];
+            chip8.memory[chip8.I] = value / 100;
+            chip8.memory[chip8.I + 1] = (value / 10) % 10;
+            chip8.memory[chip8.I + 2] = value % 10;
+            printf("\033[32mLD BCD V[%X]\033[0m",nibble2);
+        }
+        if (byte2 == 0x55){
+            //Fx55
+            for (uint8_t i = 0; i <= nibble2; ++i){
+					chip8.memory[chip8.I+ i] = chip8.V[i];	
+			}
+            printf("\033[32mLD %X V[%X]\033[0m",chip8.I,nibble2);
+        }
+        if (byte2 == 0x65){
+            //Fx65 
+            for (int i = 0; i <= nibble2; i++){
+                chip8.V[i] = chip8.memory[chip8.I + i];
+            }
+            printf("\033[32mLD V[0] to V[%X], [I]\033[0m",nibble2);
         }
         break;
     
@@ -376,8 +437,60 @@ void run_chip8(){
         SDL_Event event;
 
         while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_QUIT) running = 0;
-            handle_keyboard(event);
+            switch(event.type)
+				{
+					case SDL_QUIT:
+                        running = 0;
+					    break;
+
+					case SDL_KEYDOWN:
+
+					switch (event.key.keysym.sym)
+					{
+		
+						case SDLK_x:chip8.keys[0] = 1;break;
+						case SDLK_1:chip8.keys[1] = 1;break;
+						case SDLK_2:chip8.keys[2] = 1;break;
+						case SDLK_3:chip8.keys[3] = 1;break;
+						case SDLK_q:chip8.keys[4] = 1;break;
+						case SDLK_w:chip8.keys[5] = 1;break;
+						case SDLK_e:chip8.keys[6] = 1;break;
+						case SDLK_a:chip8.keys[7] = 1;break;
+						case SDLK_s:chip8.keys[8] = 1;break;
+						case SDLK_d:chip8.keys[9] = 1;break;
+						case SDLK_z:chip8.keys[0xA] = 1;break;
+						case SDLK_c:chip8.keys[0xB] = 1;break;
+						case SDLK_4:chip8.keys[0xC] = 1;break;
+						case SDLK_r:chip8.keys[0xD] = 1;break;
+						case SDLK_f:chip8.keys[0xE] = 1;break;
+						case SDLK_v:chip8.keys[0xF] = 1;break;
+					}
+					break;
+					
+					case SDL_KEYUP:
+					
+					switch (event.key.keysym.sym)
+					{
+						case SDLK_x:chip8.keys[0] = 0;break;
+						case SDLK_1:chip8.keys[1] = 0;break;
+						case SDLK_2:chip8.keys[2] = 0;break;
+						case SDLK_3:chip8.keys[3] = 0;break;
+						case SDLK_q:chip8.keys[4] = 0;break;
+						case SDLK_w:chip8.keys[5] = 0;break;
+						case SDLK_e:chip8.keys[6] = 0;break;
+						case SDLK_a:chip8.keys[7] = 0;break;
+						case SDLK_s:chip8.keys[8] = 0;break;
+						case SDLK_d:chip8.keys[9] = 0;break;
+						case SDLK_z:chip8.keys[0xA] = 0;break;
+						case SDLK_c:chip8.keys[0xB] = 0;break;
+						case SDLK_4:chip8.keys[0xC] = 0;break;
+						case SDLK_r:chip8.keys[0xD] = 0;break;
+						case SDLK_f:chip8.keys[0xE] = 0;break;
+						case SDLK_v:chip8.keys[0xF] = 0;break;
+					}
+					break;
+				}
+
         }
 
         
@@ -391,10 +504,11 @@ void run_chip8(){
         Instruction(byte1, byte2);
         draw();
         update_timer();
+
         ENDtimer = clock();
         double elapsed_ms = ((double)(ENDtimer - STARTtimer) / CLOCKS_PER_SEC) * 1000.0;
-        if (16666 - elapsed_ms > 0){
-            usleep(16666 -elapsed_ms); //16 ms
+        if (chip8.speed * 16666 / 100 - elapsed_ms > 0){
+            usleep(chip8.speed * 16666 / 100 -elapsed_ms); //16 ms
         }
         
         
@@ -424,6 +538,7 @@ int main(int argc, char const *argv[])
     SDL_UpdateWindowSurface(win);
 
     load_cartouche_in_memory(argv[1]);
+    chip8.speed = 0;
     run_chip8();
 
     SDL_DestroyWindow(win);
